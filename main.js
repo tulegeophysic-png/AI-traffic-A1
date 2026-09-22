@@ -1,6 +1,6 @@
 // main.js - File trung tâm khởi chạy ứng dụng AI Giám sát Giao thông
 
-import { updateUIStats, setStatus, initDashboardEvents, exportToExcel } from './dashboard.js';
+import { updateUIStats, setStatus, initDashboardEvents } from './dashboard.js';
 import { startAI, stopAI, captureFrame, setupLiveCamera } from './video.js';
 
 // Khai báo các biến toàn cục cho Canvas và AI Session
@@ -33,7 +33,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     inferenceCanvas = document.createElement('canvas');
     inferenceCtx = inferenceCanvas.getContext('2d');
 
-    // 3. Khởi tạo các sự kiện giao diện nút bấm
+    // 3. Khởi tạo các sự kiện giao diện nút bấm (bao gồm cả nút Xuất Excel bên trong dashboard.js)
     initDashboardEvents();
 
     // Gắn sự kiện cho nút Chạy AI
@@ -65,14 +65,6 @@ document.addEventListener('DOMContentLoaded', async () => {
     if (btnConnectCamera) {
         btnConnectCamera.addEventListener('click', () => {
             setupLiveCamera();
-        });
-    }
-
-    // Gắn sự kiện nút Xuất Excel
-    const btnExportExcel = document.getElementById('btn-export');
-    if (btnExportExcel) {
-        btnExportExcel.addEventListener('click', () => {
-            exportToExcel();
         });
     }
 
