@@ -1,4 +1,4 @@
-// dashboard.js - Quản lý giao diện bảng điều khiển, thống kê đếm xe và xuất dữ liệu
+// dashboard.js - Quản lý giao diện, bảng điều khiển, thống kê đếm xe và xuất dữ liệu
 
 import { vehicleStats, resetVehicleStats } from './tracking.js';
 
@@ -11,7 +11,6 @@ export function updateUIStats() {
     let totalBuses = vehicleStats.bus.total;
     let totalTrucks = vehicleStats.truck.total;
 
-    // Lấy các phần tử hiển thị trên HTML (có thể tùy chỉnh lại id nếu HTML của bạn khác)
     const elCar = document.getElementById('stat-car');
     const elMotorcycle = document.getElementById('stat-motorcycle');
     const elBus = document.getElementById('stat-bus');
@@ -24,7 +23,6 @@ export function updateUIStats() {
     if (elTruck) elTruck.innerText = totalTrucks;
     if (elTotal) elTotal.innerText = totalCars + totalMotorcycles + totalBuses + totalTrucks;
 
-    // Cập nhật chi tiết theo từng làn nếu giao diện có hỗ trợ
     updateLaneStats('car', vehicleStats.car);
     updateLaneStats('motorcycle', vehicleStats.motorcycle);
     updateLaneStats('bus', vehicleStats.bus);
@@ -43,19 +41,17 @@ function updateLaneStats(type, stats) {
 }
 
 /**
- * Thay đổi trạng thái hiển thị của Badge trên giao diện (Ví dụ: READY, RUNNING, STOPPED, ERROR)
+ * Thay đổi trạng thái hiển thị của Badge trên giao diện (Ví dụ: READY, RUNNING, STOPPED)
  */
 export function setStatus(type, message) {
     const statusBadge = document.getElementById('status-badge');
     if (!statusBadge) return;
     statusBadge.innerText = message;
-    
-    // Gán class CSS tương ứng (ready, running, stopped, error)
     statusBadge.className = `badge ${type}`;
 }
 
 /**
- * Xuất toàn bộ dữ liệu thống kê đếm xe ra file Excel (định dạng CSV hỗ trợ tiếng Việt UTF-8)
+ * Hàm xuất dữ liệu thống kê ra file Excel (CSV hỗ trợ tiếng Việt)
  */
 export function exportToExcel() {
     let csvContent = "data:text/csv;charset=utf-8,\uFEFF";
@@ -76,7 +72,7 @@ export function exportToExcel() {
 }
 
 /**
- * Khởi tạo sự kiện gắn kết các nút bấm trên Dashboard (nếu cần thiết)
+ * Khởi tạo sự kiện gắn kết các nút bấm trên Dashboard (Reset, Xuất Excel...)
  */
 export function initDashboardEvents() {
     const btnReset = document.getElementById('btn-reset');
