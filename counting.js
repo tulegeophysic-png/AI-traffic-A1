@@ -1,48 +1,20 @@
-// counting.js - Xử lý hiển thị trực quan bounding box, ID, vạch đếm và phân làn lên Canvas
+// counting.js - Hiển thị bounding box, ID, loại xe và tốc độ (Đã loại bỏ hoàn toàn mọi vạch kẻ trên video)
 
 import { ctx, canvas } from './main.js';
 
-/**
- * Vẽ khung bao quanh xe, ID, tên loại xe và vạch đếm lên màn hình
- */
 export function drawScene(trackedDetections) {
+    // Xóa sạch khung hình cũ ở mỗi frame để vẽ mới
     ctx.clearRect(0, 0, canvas.width, canvas.height);
 
-    // 1. Vẽ vạch đếm ngang và vạch phân định dọc (Làn Trái / Làn Phải)
-    const midX = canvas.width / 2;
-    const midY = canvas.height / 2;
+    // Không vẽ bất kỳ vạch phân làn hay vạch đếm nào lên giao diện video
 
-    // Vạch dọc phân định Trái - Phải
-    ctx.strokeStyle = 'rgba(0, 255, 0, 0.6)';
-    ctx.lineWidth = 2;
-    ctx.setLineDash([6, 6]);
-    ctx.beginPath();
-    ctx.moveTo(midX, 0);
-    ctx.lineTo(midX, canvas.height);
-    ctx.stroke();
-
-    // Vạch ngang đếm xe
-    ctx.strokeStyle = 'rgba(255, 0, 0, 0.8)';
-    ctx.lineWidth = 3;
-    ctx.beginPath();
-    ctx.moveTo(0, midY);
-    ctx.lineTo(canvas.width, midY);
-    ctx.stroke();
-    ctx.setLineDash([]); // Reset nét vẽ
-
-    // Chú thích vạch trên màn hình
-    ctx.fillStyle = '#00ff00';
-    ctx.font = '14px Arial';
-    ctx.fillText("LÀN TRÁI", midX - 100, 30);
-    ctx.fillText("LÀN PHẢI", midX + 30, 30);
-
-    // 2. Vẽ bounding box và thông tin của từng xe đang tracking
+    // Vẽ bounding box, nhãn tên, ID và tốc độ của từng xe đang tracking
     if (!trackedDetections) return;
 
     trackedDetections.forEach(veh => {
-        const { x1, y1, x2, y2, class: cls, id, lane } = veh;
+        const { x1, y1, x2, y2, class: cls, id, lane, speed } = veh;
 
-        // Màu sắc phân biệt tùy theo làn (Làn Trái: Xanh dương, Làn Phải: Xanh lá)
+        // Phân màu sắc khung bao quanh xe theo làn ngầm định (Làn Trái: Xanh dương, Làn Phải: Xanh lá)
         const strokeColor = lane === 'left' ? '#3b82f6' : '#10b981';
 
         // Vẽ khung Bounding Box
@@ -50,16 +22,15 @@ export function drawScene(trackedDetections) {
         ctx.lineWidth = 2;
         ctx.strokeRect(x1, y1, x2 - x1, y2 - y1);
 
-        // Nền chữ
-        const label = `#${id} ${cls.toUpperCase()} (${lane.toUpperCase()})`;
+        // Hiển thị nhãn thông tin: ID, Loại xe, Tốc độ (Ví dụ: #1 CAR | 45 km/h)
+        const label = `#${id} ${cls.toUpperCase()} | ${speed || 0} km/h`;
         ctx.font = '12px Arial';
         const textWidth = ctx.measureText(label).width;
         
         ctx.fillStyle = strokeColor;
-        ctx.fillRect(x1, y1 - 20, textWidth + 10, 20);
+        ctx.fillRect(x1, y1 - 22, textWidth + 10, 22);
 
-        // Chữ hiển thị
         ctx.fillStyle = '#ffffff';
-        ctx.fillText(label, x1 + 5, y1 - 6);
+        ctx.fillText(label, x1 + 5, y1 - 7);
     });
 }
