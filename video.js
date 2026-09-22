@@ -8,7 +8,7 @@ import { updateUIStats, setStatus } from './dashboard.js';
 export const pipelineMetrics = { preprocess: 0, inference: 0, postprocess: 0, render: 0 };
 
 let frameSkipCounter = 0;
-const FRAME_SKIP_INTERVAL = 2; // Bỏ qua frame để giảm tải, giúp video chạy mượt
+const FRAME_SKIP_INTERVAL = 2; // Bỏ qua frame để tối ưu chống giật lag
 
 export function processFrame() {
     if (!isRunning()) return;
@@ -20,21 +20,29 @@ export function processFrame() {
     const now = performance.now();
     updateFps(now);
     
+    // 1. Luôn vẽ video lên màn hình chính với kích thước gốc tùy ý của video
     const tRenderStart = performance.now();
     ctx.drawImage(videoElement, 0, 0, canvas.width, canvas.height);
     drawScene(latestDetections);
     pipelineMetrics.render = performance.now() - tRenderStart;
 
+    // 2. Cơ chế bỏ frame thông minh giảm tải
     frameSkipCounter++;
     if (!isInferencing() && frameSkipCounter >= FRAME_SKIP_INTERVAL) {
         frameSkipCounter = 0;
         setInferencing(true);
+        
+        // Đồng bộ kích thước canvas phụ theo video gốc để lấy mẫu chính xác
+        if (inferenceCanvas.width !== videoElement.videoWidth || inferenceCanvas.height !== videoElement.videoHeight) {
+            inferenceCanvas.width = videoElement.videoWidth || canvas.width;
+            inferenceCanvas.height = videoElement.videoHeight || canvas.height;
+        }
         inferenceCtx.drawImage(videoElement, 0, 0, inferenceCanvas.width, inferenceCanvas.height);
         
         setTimeout(async () => {
             try {
                 const tPre = performance.now();
-                // Khôi phục kích thước về 640 theo đúng yêu cầu của mô hình ONNX
+                // Tự động co giãn letterbox mọi kích thước video về đúng chuẩn 640x640 yêu cầu của mô hình
                 const { tensor, ratio, dw, dh } = preprocessWithLetterbox(inferenceCanvas, 640); 
                 pipelineMetrics.preprocess = performance.now() - tPre;
 
