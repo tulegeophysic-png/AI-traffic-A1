@@ -9,6 +9,7 @@ export let inferenceCanvas, inferenceCtx;
 export let latestDetections = [];
 let running = false;
 let inferencing = false;
+let videoObjectUrl = null;
 
 // Các hàm getter/setter trạng thái hệ thống
 export function isRunning() { return running; }
@@ -24,7 +25,7 @@ export function setLatestDetections(dets) { latestDetections = dets; }
  */
 document.addEventListener('DOMContentLoaded', async () => {
     // 1. Khởi tạo Canvas hiển thị chính
-    canvas = document.getElementById('output-canvas');
+    canvas = document.getElementById('canvas');
     if (canvas) {
         ctx = canvas.getContext('2d');
     }
@@ -33,35 +34,63 @@ document.addEventListener('DOMContentLoaded', async () => {
     inferenceCanvas = document.createElement('canvas');
     inferenceCtx = inferenceCanvas.getContext('2d');
 
-    // 3. Khởi tạo các sự kiện giao diện nút bấm (bao gồm cả nút Xuất Excel bên trong dashboard.js)
+    // 3. Lấy phần tử video source
+    const videoElement = document.getElementById('video-source');
+    const uploadInput = document.getElementById('upload-video');
+    const btnStart = document.getElementById('btn-start');
+    const btnStop = document.getElementById('btn-stop');
+    const btnCapture = document.getElementById('btn-capture');
+
+    // 4. Lắng nghe sự kiện chọn file video từ máy tính
+    if (uploadInput && videoElement) {
+        uploadInput.addEventListener('change', function(e) {
+            const file = e.target.files[0];
+            if (file) {
+                if (running) stopAI();
+                if (videoObjectUrl) URL.revokeObjectURL(videoObjectUrl);
+                
+                videoObjectUrl = URL.createObjectURL(file);
+                videoElement.src = videoObjectUrl;
+                videoElement.load();
+                
+                videoElement.onloadedmetadata = function() {
+                    if (canvas) {
+                        canvas.width = videoElement.videoWidth;
+                        canvas.height = videoElement.videoHeight;
+                        inferenceCanvas.width = canvas.width;
+                        inferenceCanvas.height = canvas.height;
+                        ctx.drawImage(videoElement, 0, 0, canvas.width, canvas.height);
+                    }
+                    // Mở khóa nút Chạy AI khi đã chọn video thành công
+                    if (btnStart) btnStart.disabled = false;
+                    setStatus('ready', 'AI READY');
+                };
+            }
+        });
+    }
+
+    // 5. Khởi tạo các sự kiện giao diện nút bấm
     initDashboardEvents();
 
-    // Gắn sự kiện cho nút Chạy AI
-    const btnStart = document.getElementById('btn-start');
     if (btnStart) {
         btnStart.addEventListener('click', () => {
             startAI();
         });
     }
 
-    // Gắn sự kiện cho nút Dừng lại
-    const btnStop = document.getElementById('btn-stop');
     if (btnStop) {
         btnStop.addEventListener('click', () => {
             stopAI();
         });
     }
 
-    // Gắn sự kiện cho nút Chụp khung hình
-    const btnCapture = document.getElementById('btn-capture');
     if (btnCapture) {
         btnCapture.addEventListener('click', () => {
             captureFrame();
         });
     }
 
-    // Gắn sự kiện cho nút Kết nối Camera / Chọn nguồn video
-    const btnConnectCamera = document.getElementById('btn-connect-camera');
+    const btnConnectCamera = document.getElementById('btn-live-camera');
     if (btnConnectCamera) {
         btnConnectCamera.addEventListener('click', () => {
             setupLiveCamera();
