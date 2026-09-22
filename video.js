@@ -1,3 +1,5 @@
+// video.js - Quản lý luồng video, camera, xử lý frame và tích hợp AI YOLOv10
+
 import { session } from './model.js';
 import { preprocessWithLetterbox, parseYolov10Output } from './model.js';
 import { canvas, ctx, inferenceCanvas, inferenceCtx, latestDetections, setLatestDetections, isInferencing, setInferencing, isRunning, setRunning } from './main.js';
@@ -20,29 +22,33 @@ export function processFrame() {
     const now = performance.now();
     updateFps(now);
     
-    // 1. Luôn vẽ video lên màn hình chính với kích thước gốc tùy ý của video
+    // 1. Vẽ video lên màn hình chính với kích thước chuẩn của canvas
     const tRenderStart = performance.now();
-    ctx.drawImage(videoElement, 0, 0, canvas.width, canvas.height);
-    drawScene(latestDetections);
+    if (videoElement.readyState >= videoElement.HAVE_CURRENT_DATA) {
+        ctx.drawImage(videoElement, 0, 0, canvas.width, canvas.height);
+        drawScene(latestDetections);
+    }
     pipelineMetrics.render = performance.now() - tRenderStart;
 
-    // 2. Cơ chế bỏ frame thông minh giảm tải
+    // 2. Cơ chế bỏ frame thông minh giảm tải cho AI
     frameSkipCounter++;
     if (!isInferencing() && frameSkipCounter >= FRAME_SKIP_INTERVAL) {
         frameSkipCounter = 0;
         setInferencing(true);
         
-        // Đồng bộ kích thước canvas phụ theo video gốc để lấy mẫu chính xác
-        if (inferenceCanvas.width !== videoElement.videoWidth || inferenceCanvas.height !== videoElement.videoHeight) {
-            inferenceCanvas.width = videoElement.videoWidth || canvas.width;
-            inferenceCanvas.height = videoElement.videoHeight || canvas.height;
+        // Đồng bộ kích thước canvas phụ theo video gốc
+        const vWidth = videoElement.videoWidth || canvas.width || 640;
+        const vHeight = videoElement.videoHeight || canvas.height || 360;
+        
+        if (inferenceCanvas.width !== vWidth || inferenceCanvas.height !== vHeight) {
+            inferenceCanvas.width = vWidth;
+            inferenceCanvas.height = vHeight;
         }
         inferenceCtx.drawImage(videoElement, 0, 0, inferenceCanvas.width, inferenceCanvas.height);
         
         setTimeout(async () => {
             try {
                 const tPre = performance.now();
-                // Tự động co giãn letterbox mọi kích thước video về đúng chuẩn 640x640 yêu cầu của mô hình
                 const { tensor, ratio, dw, dh } = preprocessWithLetterbox(inferenceCanvas, 640); 
                 pipelineMetrics.preprocess = performance.now() - tPre;
 
@@ -51,8 +57,10 @@ export function processFrame() {
                 pipelineMetrics.inference = performance.now() - tInf;
 
                 const tPost = performance.now();
+                const currentFps = window.__trafficFpsState ? window.__trafficFpsState.currentFps : 30;
                 const detections = parseYolov10Output(results[session.outputNames[0]], canvas.width, canvas.height, ratio, dw, dh);
-                setLatestDetections(matchAndCountVehicles(detections));
+                
+                setLatestDetections(matchAndCountVehicles(detections, canvas.width, canvas.height, currentFps > 0 ? currentFps : 30));
                 pipelineMetrics.postprocess = performance.now() - tPost;
 
                 updateUIStats();
@@ -78,20 +86,31 @@ export async function startAI() {
         return;
     }
     setRunning(true);
-    document.getElementById('btn-start').disabled = true;
-    document.getElementById('btn-stop').disabled = false;
-    document.getElementById('btn-capture').disabled = false;
+    const btnStart = document.getElementById('btn-start');
+    const btnStop = document.getElementById('btn-stop');
+    const btnCapture = document.getElementById('btn-capture');
+    
+    if (btnStart) btnStart.disabled = true;
+    if (btnStop) btnStop.disabled = false;
+    if (btnCapture) btnCapture.disabled = false;
+    
     setStatus('ready', 'RUNNING');
     requestAnimationFrame(processFrame);
 }
 
 export function stopAI() {
     setRunning(false);
-    videoElement.pause();
-    const hasSource = videoElement.src || videoElement.srcObject;
-    document.getElementById('btn-start').disabled = !(hasSource && session);
-    document.getElementById('btn-stop').disabled = true;
-    document.getElementById('btn-capture').disabled = true;
+    if (videoElement) videoElement.pause();
+    const hasSource = videoElement && (videoElement.src || videoElement.srcObject);
+    
+    const btnStart = document.getElementById('btn-start');
+    const btnStop = document.getElementById('btn-stop');
+    const btnCapture = document.getElementById('btn-capture');
+
+    if (btnStart) btnStart.disabled = !(hasSource && session);
+    if (btnStop) btnStop.disabled = true;
+    if (btnCapture) btnCapture.disabled = true;
+    
     setStatus('stopped', 'AI STOPPED');
 }
 
@@ -109,7 +128,7 @@ export async function setupLiveCamera() {
     let streamUrl = selectElement ? selectElement.value : '';
 
     if (!streamUrl) {
-        streamUrl = prompt("Nhập địa chỉ URL luồng camera:", "http://");
+        streamUrl = prompt("Nhập địa chỉ URL luồng camera hoặc link video:", "");
     }
 
     if (!streamUrl) return;
@@ -120,20 +139,30 @@ export async function setupLiveCamera() {
         videoElement.crossOrigin = "anonymous";
         videoElement.load();
         
+        // Đảm bảo bắt sự kiện tải metadata an toàn
         videoElement.onloadedmetadata = () => {
             canvas.width = videoElement.videoWidth || 1280;
             canvas.height = videoElement.videoHeight || 720;
             inferenceCanvas.width = canvas.width;
             inferenceCanvas.height = canvas.height;
+            
             ctx.drawImage(videoElement, 0, 0, canvas.width, canvas.height);
             drawScene([]);
+            
             if (session) {
-                document.getElementById('btn-start').disabled = false;
+                const btnStart = document.getElementById('btn-start');
+                if (btnStart) btnStart.disabled = false;
                 setStatus('ready', 'CAMERA READY');
             }
         };
+
+        videoElement.onerror = (e) => {
+            console.error("Lỗi khi tải nguồn video:", e);
+            setStatus('error', 'LOAD ERROR');
+        };
+
     } catch (error) {
-        console.error('Lỗi kết nối camera:', error);
+        console.error('Lỗi kết nối camera/video:', error);
     }
 }
 
