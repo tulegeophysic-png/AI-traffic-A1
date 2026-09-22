@@ -1,36 +1,96 @@
-// dashboard.js - Quản lý cập nhật giao diện thống kê Trái - Phải - Tổng
+// dashboard.js - Quản lý giao diện bảng điều khiển, thống kê đếm xe và xuất dữ liệu
 
-import { vehicleStats } from './tracking.js';
+import { vehicleStats, resetVehicleStats } from './tracking.js';
 
 /**
- * Cập nhật số liệu từ biến vehicleStats ra bảng HTML tương ứng
+ * Cập nhật số liệu thống kê lên các thành phần giao diện (UI) theo thời gian thực
  */
 export function updateUIStats() {
-    // Cập nhật số liệu cho ô Car (Ô tô)
-    document.getElementById('car-left').innerText = vehicleStats.car.left;
-    document.getElementById('car-right').innerText = vehicleStats.car.right;
-    document.getElementById('car-total').innerText = vehicleStats.car.total;
+    let totalCars = vehicleStats.car.total;
+    let totalMotorcycles = vehicleStats.motorcycle.total;
+    let totalBuses = vehicleStats.bus.total;
+    let totalTrucks = vehicleStats.truck.total;
 
-    // Cập nhật số liệu cho ô Motorcycle (Xe máy)
-    document.getElementById('moto-left').innerText = vehicleStats.motorcycle.left;
-    document.getElementById('moto-right').innerText = vehicleStats.motorcycle.right;
-    document.getElementById('moto-total').innerText = vehicleStats.motorcycle.total;
+    // Lấy các phần tử hiển thị trên HTML (có thể tùy chỉnh lại id nếu HTML của bạn khác)
+    const elCar = document.getElementById('stat-car');
+    const elMotorcycle = document.getElementById('stat-motorcycle');
+    const elBus = document.getElementById('stat-bus');
+    const elTruck = document.getElementById('stat-truck');
+    const elTotal = document.getElementById('stat-total');
 
-    // Cập nhật số liệu cho ô Bus (Xe buýt)
-    document.getElementById('bus-left').innerText = vehicleStats.bus.left;
-    document.getElementById('bus-right').innerText = vehicleStats.bus.right;
-    document.getElementById('bus-total').innerText = vehicleStats.bus.total;
+    if (elCar) elCar.innerText = totalCars;
+    if (elMotorcycle) elMotorcycle.innerText = totalMotorcycles;
+    if (elBus) elBus.innerText = totalBuses;
+    if (elTruck) elTruck.innerText = totalTrucks;
+    if (elTotal) elTotal.innerText = totalCars + totalMotorcycles + totalBuses + totalTrucks;
 
-    // Cập nhật số liệu cho ô Truck (Xe tải)
-    document.getElementById('truck-left').innerText = vehicleStats.truck.left;
-    document.getElementById('truck-right').innerText = vehicleStats.truck.right;
-    document.getElementById('truck-total').innerText = vehicleStats.truck.total;
+    // Cập nhật chi tiết theo từng làn nếu giao diện có hỗ trợ
+    updateLaneStats('car', vehicleStats.car);
+    updateLaneStats('motorcycle', vehicleStats.motorcycle);
+    updateLaneStats('bus', vehicleStats.bus);
+    updateLaneStats('truck', vehicleStats.truck);
 }
 
-export function setStatus(statusClass, statusText) {
-    const statusBadge = document.getElementById('ai-status-badge');
-    if (statusBadge) {
-        statusBadge.className = `status-badge ${statusClass}`;
-        statusBadge.innerText = statusText;
+/**
+ * Cập nhật chi tiết số lượng theo Làn Trái / Làn Phải cho từng loại xe
+ */
+function updateLaneStats(type, stats) {
+    const elLeft = document.getElementById(`stat-${type}-left`);
+    const elRight = document.getElementById(`stat-${type}-right`);
+
+    if (elLeft) elLeft.innerText = stats.left;
+    if (elRight) elRight.innerText = stats.right;
+}
+
+/**
+ * Thay đổi trạng thái hiển thị của Badge trên giao diện (Ví dụ: READY, RUNNING, STOPPED, ERROR)
+ */
+export function setStatus(type, message) {
+    const statusBadge = document.getElementById('status-badge');
+    if (!statusBadge) return;
+    statusBadge.innerText = message;
+    
+    // Gán class CSS tương ứng (ready, running, stopped, error)
+    statusBadge.className = `badge ${type}`;
+}
+
+/**
+ * Xuất toàn bộ dữ liệu thống kê đếm xe ra file Excel (định dạng CSV hỗ trợ tiếng Việt UTF-8)
+ */
+export function exportToExcel() {
+    let csvContent = "data:text/csv;charset=utf-8,\uFEFF";
+    csvContent += "Loại phương tiện,Làn Trái,Làn Phải,Tổng cộng\n";
+    
+    for (let key in vehicleStats) {
+        const item = vehicleStats[key];
+        csvContent += `${key.toUpperCase()},${item.left},${item.right},${item.total}\n`;
+    }
+
+    const encodedUri = encodeURI(csvContent);
+    const link = document.createElement("a");
+    link.setAttribute("href", encodedUri);
+    link.setAttribute("download", `traffic_statistics_${Date.now()}.csv`);
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+}
+
+/**
+ * Khởi tạo sự kiện gắn kết các nút bấm trên Dashboard (nếu cần thiết)
+ */
+export function initDashboardEvents() {
+    const btnReset = document.getElementById('btn-reset');
+    if (btnReset) {
+        btnReset.addEventListener('click', () => {
+            resetVehicleStats();
+            updateUIStats();
+        });
+    }
+
+    const btnExport = document.getElementById('btn-export');
+    if (btnExport) {
+        btnExport.addEventListener('click', () => {
+            exportToExcel();
+        });
     }
 }
