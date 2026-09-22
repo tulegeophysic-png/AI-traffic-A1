@@ -8,7 +8,7 @@ import { updateUIStats, setStatus } from './dashboard.js';
 export const pipelineMetrics = { preprocess: 0, inference: 0, postprocess: 0, render: 0 };
 
 let frameSkipCounter = 0;
-const FRAME_SKIP_INTERVAL = 2; // Bỏ qua frame để giảm tải, giúp video chạy cực mượt
+const FRAME_SKIP_INTERVAL = 2; // Bỏ qua frame để giảm tải, giúp video chạy mượt
 
 export function processFrame() {
     if (!isRunning()) return;
@@ -34,7 +34,8 @@ export function processFrame() {
         setTimeout(async () => {
             try {
                 const tPre = performance.now();
-                const { tensor, ratio, dw, dh } = preprocessWithLetterbox(inferenceCanvas, 512); 
+                // Khôi phục kích thước về 640 theo đúng yêu cầu của mô hình ONNX
+                const { tensor, ratio, dw, dh } = preprocessWithLetterbox(inferenceCanvas, 640); 
                 pipelineMetrics.preprocess = performance.now() - tPre;
 
                 const tInf = performance.now();
