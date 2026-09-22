@@ -1,78 +1,65 @@
-import { canvas, ctx, latestDetections, sideDividerConfig, getDividerDragMode } from './main.js';
+// counting.js - Xử lý hiển thị trực quan bounding box, ID, vạch đếm và phân làn lên Canvas
 
-export function drawScene(vehicles) {
-    // Đã lược bỏ hoàn toàn vạch ngang đếm xe theo yêu cầu
-    if (vehicles) {
-        vehicles.forEach(vehicle => {
-            const [x, y, width, height] = vehicle.bbox;
-            const color = getCategoryColor(vehicle.className);
-            ctx.strokeStyle = color;
-            ctx.lineWidth = 2;
-            ctx.strokeRect(x, y, width, height);
+import { ctx, canvas } from './main.js';
 
-            ctx.fillStyle = color;
-            ctx.fillRect(x, y > 18 ? y - 18 : 0, 110, 16);
-            ctx.fillStyle = '#ffffff';
-            ctx.font = 'bold 10px Segoe UI';
-            ctx.fillText(`${vehicle.className.toUpperCase()} #${vehicle.id} (${(vehicle.confidence * 100).toFixed(0)}%)`, x + 2, y > 18 ? y - 5 : 12);
-        });
-    }
+/**
+ * Vẽ khung bao quanh xe, ID, tên loại xe và vạch đếm lên màn hình
+ */
+export function drawScene(trackedDetections) {
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
 
-    drawSideDivider();
-}
+    // 1. Vẽ vạch đếm ngang và vạch phân định dọc (Làn Trái / Làn Phải)
+    const midX = canvas.width / 2;
+    const midY = canvas.height / 2;
 
-function drawSideDivider() {
-    ctx.save();
-    ctx.globalCompositeOperation = 'source-over';
-    const startX = sideDividerConfig.start.x * canvas.width;
-    const startY = sideDividerConfig.start.y * canvas.height;
-    const endX = sideDividerConfig.end.x * canvas.width;
-    const endY = sideDividerConfig.end.y * canvas.height;
-    ctx.lineWidth = 8;
-    ctx.strokeStyle = '#111827';
-    ctx.setLineDash([18, 12]);
+    // Vạch dọc phân định Trái - Phải
+    ctx.strokeStyle = 'rgba(0, 255, 0, 0.6)';
+    ctx.lineWidth = 2;
+    ctx.setLineDash([6, 6]);
     ctx.beginPath();
-    ctx.moveTo(startX, startY);
-    ctx.lineTo(endX, endY);
+    ctx.moveTo(midX, 0);
+    ctx.lineTo(midX, canvas.height);
     ctx.stroke();
-    ctx.lineWidth = 5;
-    ctx.strokeStyle = '#22c55e';
+
+    // Vạch ngang đếm xe
+    ctx.strokeStyle = 'rgba(255, 0, 0, 0.8)';
+    ctx.lineWidth = 3;
     ctx.beginPath();
-    ctx.moveTo(startX, startY);
-    ctx.lineTo(endX, endY);
+    ctx.moveTo(0, midY);
+    ctx.lineTo(canvas.width, midY);
     ctx.stroke();
-    ctx.setLineDash([]);
-    ctx.font = 'bold 13px Segoe UI';
-    const rightLabelX = Math.max(12, startX + 12);
-    ctx.fillStyle = 'rgba(17, 24, 39, 0.9)';
-    ctx.fillRect(8, 7, 54, 22);
-    ctx.fillRect(rightLabelX - 5, 7, 58, 22);
-    ctx.fillStyle = '#22c55e';
-    ctx.fillText('TRÁI', 14, 23);
-    ctx.fillText('PHẢI', rightLabelX, 23);
-    ctx.fillStyle = '#22c55e';
-    ctx.beginPath();
-    ctx.arc(startX, startY, 11, 0, Math.PI * 2);
-    ctx.arc(endX, endY, 11, 0, Math.PI * 2);
-    ctx.fill();
-    if (getDividerDragMode()) {
+    ctx.setLineDash([]); // Reset nét vẽ
+
+    // Chú thích vạch trên màn hình
+    ctx.fillStyle = '#00ff00';
+    ctx.font = '14px Arial';
+    ctx.fillText("LÀN TRÁI", midX - 100, 30);
+    ctx.fillText("LÀN PHẢI", midX + 30, 30);
+
+    // 2. Vẽ bounding box và thông tin của từng xe đang tracking
+    if (!trackedDetections) return;
+
+    trackedDetections.forEach(veh => {
+        const { x1, y1, x2, y2, class: cls, id, lane } = veh;
+
+        // Màu sắc phân biệt tùy theo làn (Làn Trái: Xanh dương, Làn Phải: Xanh lá)
+        const strokeColor = lane === 'left' ? '#3b82f6' : '#10b981';
+
+        // Vẽ khung Bounding Box
+        ctx.strokeStyle = strokeColor;
+        ctx.lineWidth = 2;
+        ctx.strokeRect(x1, y1, x2 - x1, y2 - y1);
+
+        // Nền chữ
+        const label = `#${id} ${cls.toUpperCase()} (${lane.toUpperCase()})`;
+        ctx.font = '12px Arial';
+        const textWidth = ctx.measureText(label).width;
+        
+        ctx.fillStyle = strokeColor;
+        ctx.fillRect(x1, y1 - 20, textWidth + 10, 20);
+
+        // Chữ hiển thị
         ctx.fillStyle = '#ffffff';
-        ctx.font = 'bold 12px Segoe UI';
-        ctx.fillText('KÉO VẠCH PHÂN LÀN', Math.min(canvas.width - 190, startX + 15), Math.max(18, startY + 18));
-    }
-    ctx.restore();
-}
-
-export function resetLinePosition() {
-    drawScene(latestDetections);
-}
-
-function getCategoryColor(className) {
-    switch (className) {
-        case 'car': return '#2563eb';
-        case 'motorcycle': return '#16a34a';
-        case 'bus': return '#d97706';
-        case 'truck': return '#dc2626';
-        default: return '#38bdf8';
-    }
+        ctx.fillText(label, x1 + 5, y1 - 6);
+    });
 }
